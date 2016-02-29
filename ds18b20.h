@@ -25,6 +25,7 @@
 #define DS18B20_INT_DISABLE 1
 
 //functions
-int ds18b20_readtemp();
+uint8_t ds18b20_convert();
+int ds18b20_readtemp(uint64_t deviceID);
 
 #endif

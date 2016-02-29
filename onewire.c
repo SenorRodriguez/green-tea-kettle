@@ -3,25 +3,28 @@
  *
  * Created: 19.02.2016 17:04:21
  *  Author: Zbyszek
+ * Based on Atmel's AVR318 document, http://www.atmel.com/images/doc2579.pdf
+ * My main goal was to create library independent of any other non-standard libraries (uart, etc.)
  */ 
 #include "onewire.h"
 #include <avr/io.h>
 #include <util/delay.h>
+#include <avr/interrupt.h>
 
 //reset One wire communication
 uint8_t ow_reset() {
 	uint8_t i;
 
 	//to reset, hold the line low 
-	OW_PORT &= ~ (1<<OW_DQ);	//set register to low
-	OW_DDR |= (1<<OW_DQ);		//make it happen, by setting DQ as output
+	OW_PORT &= ~ (1<<OW_DQ);		//set register to low
+	OW_DDR |= (1<<OW_DQ);			//make it happen, by setting DQ as output
 	_delay_us(DELAY_H);				
 
-	//release the line and wait for 15 to 60us
-	OW_DDR &= ~(1<<OW_DQ);		//set DQ as high impedance input, thus release line
+	//release the line and wait for I us
+	OW_DDR &= ~(1<<OW_DQ);			//set DQ as high impedance input, thus release line (it goes back to HI by pull-up resistor)
 	_delay_us(DELAY_I);				//wait
 
-	//get DQ state and wait 420us
+	//get DQ state and wait J us
 	i = (OW_PIN & (1<<OW_DQ));
 	_delay_us(DELAY_J);
 
@@ -35,12 +38,12 @@ void ow_writebit(uint8_t bit){
 	OW_DDR |= (1<<OW_DQ);		//set DQ as output
 	_delay_us(DELAY_A);			//delay A
 
-	//if we want to write 1, release the line (it goes back to HI by pull-up resistor)
+	//if we want to write 1, release the line 
 	if(bit)
 	OW_DDR &= ~(1<<OW_DQ);		//release by setting DQ in input mode
 
-	//if we want to write 0, do nothing (line is being kept LO) and just wait 60us, then release the line
-	_delay_us(60);
+	//if we want to write 0, do nothing (line is being kept LO) and just wait B us, then release the line
+	_delay_us(DELAY_B);
 	OW_DDR &= ~(1<<OW_DQ);		//release line
 }
 
@@ -88,6 +91,7 @@ uint8_t ow_enumerate(volatile uint64_t* bitPattern, uint8_t lastDeviation){
 	uint8_t newDeviation = 0;
 	uint8_t bitIndex = 0;
     uint8_t bit1,bit2;
+	cli();
 	ow_reset();
 	ow_writebyte(OW_CMD_SEARCHROM);
 	while (bitIndex<64)
@@ -126,5 +130,11 @@ uint8_t ow_enumerate(volatile uint64_t* bitPattern, uint8_t lastDeviation){
 			ow_writebit(0);
 		bitIndex++;
 	}
+	sei();
 	return newDeviation;
+}
+
+uint8_t ow_rom_decode(uint64_t* id, uint8_t* familyCode, uint32_t* serialNumber, uint8_t CRC)
+{
+	return 1;
 }
